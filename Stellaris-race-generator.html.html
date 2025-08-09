@@ -1,0 +1,317 @@
+
+≠Z
+™Z
+ßZ
+§ZÄZ<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Stellaris Random Race Generator</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 20px; max-width: 900px; }
+  h1 { margin-bottom: 10px; }
+  .dlc-list { margin-bottom: 20px; }
+  .portrait-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
+  .portrait-item { cursor: pointer; border: 2px solid transparent; border-radius: 6px; }
+  .portrait-item.selected { border-color: #4CAF50; }
+  .portrait-item img { height: 80px; width: 80px; object-fit: contain; display: block; }
+  button { padding: 10px 15px; font-size: 16px; cursor: pointer; }
+  .result { background: #f0f0f0; padding: 15px; border-radius: 6px; white-space: pre-wrap; margin-top: 20px; }
+  .copy-button { margin-top: 10px; }
+</style>
+</head>
+<body>
+  <h1>Stellaris Random Race Generator</h1>
+  <div>
+    <strong>Select DLCs you have:</strong><br />
+    <div id="dlcList" class="dlc-list"></div>
+  </div>
+
+  <div>
+    <strong>Select a portrait (or randomize):</strong>
+    <div id="portraitGrid" class="portrait-grid"></div>
+  </div>
+
+  <button id="generateBtn">Generate Race</button>
+
+  <div id="result" class="result" style="display:none;"></div>
+  <button id="copyBtn" class="copy-button" style="display:none;">Copy to Clipboard</button>
+
+<script>
+  // Data (same as Flask app, embedded here)
+  const DLC_LIST = [
+    "Utopia", "Leviathans", "Synthetic Dawn", "Apocalypse",
+    "Ancient Relics", "Distant Stars", "Megacorp", "Overlord",
+    "Federations", "Lithoids", "Aquatics", "Nemesis",
+    "Grand Archive", "BioGenesis", "Shadows of the Shroud",
+    "Infernals", "Plantoids", "Necroids", "Toxoids", "Machine Age"
+  ];
+
+  const SPECIES_BASES = [
+    {"name": "Humanoid", "dlc": []},
+    {"name": "Mammalian", "dlc": []},
+    {"name": "Avian", "dlc": []},
+    {"name": "Reptilian", "dlc": []},
+    {"name": "Arthropoid", "dlc": []},
+    {"name": "Insectoid", "dlc": []},
+    {"name": "Fungoid", "dlc": []},
+    {"name": "Molluscoid", "dlc": []},
+    {"name": "Plantoid", "dlc": ["Plantoids"]},
+    {"name": "Lithoid", "dlc": ["Lithoids"]},
+    {"name": "Aquatic", "dlc": ["Aquatics"]},
+    {"name": "Necroid", "dlc": ["Necroids"]},
+    {"name": "Toxoid", "dlc": ["Toxoids"]},
+    {"name": "Machine", "dlc": ["Machine Age", "Synthetic Dawn"]},
+    {"name": "Psionic", "dlc": ["Shadows of the Shroud"]},
+    {"name": "Infernal", "dlc": ["Infernals"]},
+  ];
+
+  const PORTRAITS = [
+    {"name": "Classic Male", "dlc": [], "url": "https://static.wikia.nocookie.net/stellaris_gamepedia/images/7/72/Portrait_ClassicMale.png"},
+    {"name": "Classic Female", "dlc": [], "url": "https://static.wikia.nocookie.net/stellaris_gamepedia/images/d/dd/Portrait_ClassicFemale.png"},
+    {"name": "Mechanical", "dlc": ["Machine Age", "Synthetic Dawn"], "url": "https://static.wikia.nocookie.net/stellaris_gamepedia/images/1/12/Portrait_Machine.png"},
+    {"name": "Lithoid", "dlc": ["Lithoids"], "url": "https://static.wikia.nocookie.net/stellaris_gamepedia/images/0/00/Portrait_Lithoid.png"},
+    {"name": "Aquatic", "dlc": ["Aquatics"], "url": "https://static.wikia.nocookie.net/stellaris_gamepedia/images/c/cd/Portrait_Aquatic.png"},
+    {"name": "Necroid", "dlc": ["Necroids"], "url": "https://static.wikia.nocookie.net/stellaris_gamepedia/images/9/9d/Portrait_Necroid.png"},
+    {"name": "Infernal", "dlc": ["Infernals"], "url": "https://static.wikia.nocookie.net/stellaris_gamepedia/images/6/69/Portrait_Infernal.png"},
+    {"name": "Plantoid", "dlc": ["Plantoids"], "url": "https://static.wikia.nocookie.net/stellaris_gamepedia/images/4/4b/Portrait_Plantoid.png"},
+    {"name": "Fungoid", "dlc": [], "url": "https://static.wikia.nocookie.net/stellaris_gamepedia/images/e/e0/Portrait_Fungoid.png"},
+  ];
+
+  const TRAITS = [
+    {"name": "Intelligent", "dlc": []},
+    {"name": "Industrious", "dlc": []},
+    {"name": "Charismatic", "dlc": []},
+    {"name": "Adaptive", "dlc": []},
+    {"name": "Extremely Adaptive", "dlc": []},
+    {"name": "Resilient", "dlc": []},
+    {"name": "Very Strong", "dlc": []},
+    {"name": "Strong", "dlc": []},
+    {"name": "Fertile", "dlc": []},
+    {"name": "Rapid Breeders", "dlc": []},
+    {"name": "Lithoid", "dlc": ["Lithoids"]},
+    {"name": "Aquatic", "dlc": ["Aquatics"]},
+    {"name": "Necrophage", "dlc": ["Necroids"]},
+    {"name": "Clone Army", "dlc": ["Synthetic Dawn"]},
+    {"name": "Robust", "dlc": []},
+    {"name": "Phototrophic", "dlc": ["Ancient Relics"]},
+    {"name": "Slow Breeders", "dlc": []},
+    {"name": "Nonadaptive", "dlc": []},
+    {"name": "Weak", "dlc": []},
+    {"name": "Nomadic", "dlc": []},
+    {"name": "Repugnant", "dlc": []},
+    {"name": "Decadent", "dlc": []},
+  ];
+
+  const ETHICS = [
+    "Fanatic Spiritualist", "Spiritualist", "Xenophile", "Pacifist",
+    "Materialist", "Militarist", "Egalitarian", "Authoritarian",
+    "Fanatic Purifier", "Gestalt Consciousness", "Devouring Swarm",
+    "Fanatic Militarist", "Fanatic Xenophobe", "Collectivist", "Individualist"
+  ];
+
+  const CIVICS = [
+    {"name": "Diplomatic Corps", "dlc": []},
+    {"name": "Technocracy", "dlc": []},
+    {"name": "Trader Guilds", "dlc": []},
+    {"name": "Meritocracy", "dlc": []},
+    {"name": "Military Junta", "dlc": []},
+    {"name": "Functionalist", "dlc": []},
+    {"name": "Corporate Dominion", "dlc": ["Megacorp"]},
+    {"name": "Commercial Republic", "dlc": ["Megacorp"]},
+    {"name": "Syncretic Evolution", "dlc": ["Synthetic Dawn"]},
+    {"name": "Necrophage Disposition", "dlc": ["Necroids"]},
+    {"name": "Radical Purists", "dlc": []},
+    {"name": "Aristocratic Elite", "dlc": []},
+    {"name": "Technocratic Oligarchy", "dlc": []},
+    {"name": "Shared Burdens", "dlc": []},
+  ];
+
+  const GOVERNMENTS = [
+    "Democratic Republic", "Oligarchic Republic", "Dictatorship", "Imperial",
+    "Machine Intelligence", "Hive Mind", "Corporate Dominion"
+  ];
+
+  const ORIGINS = [
+    "Prosperous Unification", "Scion", "Galactic Doorstep", "Void Dwellers",
+    "Life-Seeded", "Remnants", "Lost Colony", "World Shaper"
+  ];
+
+  // Utility functions
+  function shuffle(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+      let j = Math.floor(Math.random() * (i + 1));
+      [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
+  }
+
+  function pickRandom(array) {
+    return array[Math.floor(Math.random() * array.length)];
+  }
+
+  // Filter items by DLC compatibility
+  function filterByDlc(items, selectedDlcs) {
+    return items.filter(item => {
+      return item.dlc.length === 0 || item.dlc.some(dlc => selectedDlcs.includes(dlc));
+    });
+  }
+
+  // Generate a random name (simple)
+  function generateName() {
+    const prefixes = ["Zor", "Vel", "Xan", "Lor", "Gar", "Tor", "Fen", "Sol", "Rex", "Mor"];
+    const suffixes = ["thar", "ion", "ax", "or", "us", "ar", "um", "is", "ok", "em", "ir"];
+    return pickRandom(prefixes) + pickRandom(suffixes);
+  }
+
+  // Generate race function
+  function generateRace(selectedDlcs) {
+    // Species bases filtered by DLC
+    const speciesBases = filterByDlc(SPECIES_BASES, selectedDlcs);
+    const speciesBase = pickRandom(speciesBases);
+
+    // Portraits filtered by DLC
+    const portraits = filterByDlc(PORTRAITS, selectedDlcs);
+    const portrait = pickRandom(portraits);
+
+    // Traits filtered by DLC, pick 2-3 random
+    const traits = filterByDlc(TRAITS, selectedDlcs);
+    const shuffledTraits = shuffle([...traits]);
+    const selectedTraits = shuffledTraits.slice(0, 3);
+
+    // Ethics pick 2 random
+    const selectedEthics = shuffle([...ETHICS]).slice(0, 2);
+
+    // Government random
+    const government = pickRandom(GOVERNMENTS);
+
+    // Civics filtered by DLC, pick 2
+    const civics = filterByDlc(CIVICS, selectedDlcs);
+    const shuffledCivics = shuffle([...civics]);
+    const selectedCivics = shuffledCivics.slice(0, 2);
+
+    // Origin random
+    const origin = pickRandom(ORIGINS);
+
+    // Generate name
+    const name = generateName();
+
+    return {
+      name: name,
+      species_base: speciesBase.name,
+      portrait: portrait,
+      traits: selectedTraits.map(t => t.name),
+      ethics: selectedEthics,
+      government: government,
+      civics: selectedCivics.map(c => c.name),
+      origin: origin,
+    };
+  }
+
+  // DOM Elements
+  const dlcListDiv = document.getElementById("dlcList");
+  const portraitGridDiv = document.getElementById("portraitGrid");
+  const generateBtn = document.getElementById("generateBtn");
+  const resultDiv = document.getElementById("result");
+  const copyBtn = document.getElementById("copyBtn");
+
+  // Render DLC checkboxes
+  function renderDlcs() {
+    dlcListDiv.innerHTML = "";
+    DLC_LIST.forEach(dlc => {
+      const label = document.createElement("label");
+      label.style.display = "block";
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.name = "dlc";
+      checkbox.value = dlc;
+      label.appendChild(checkbox);
+      label.append(" " + dlc);
+      dlcListDiv.appendChild(label);
+    });
+  }
+
+  // Get selected DLCs
+  function getSelectedDlcs() {
+    return Array.from(document.querySelectorAll("input[name=dlc]:checked")).map(cb => cb.value);
+  }
+
+  // Render portraits filtered by DLC
+  function renderPortraits(selectedDlcs) {
+    portraitGridDiv.innerHTML = "";
+    const filteredPortraits = filterByDlc(PORTRAITS, selectedDlcs);
+    filteredPortraits.forEach(p => {
+      const div = document.createElement("div");
+      div.className = "portrait-item";
+      div.title = p.name;
+      div.dataset.name = p.name;
+      const img = document.createElement("img");
+      img.src = p.url;
+      img.alt = p.name;
+      div.appendChild(img);
+      div.addEventListener("click", () => {
+        document.querySelectorAll(".portrait-item").forEach(el => el.classList.remove("selected"));
+        div.classList.add("selected");
+        selectedPortraitName = p.name;
+      });
+      portraitGridDiv.appendChild(div);
+    });
+  }
+
+  let selectedPortraitName = null;
+
+  // Update portraits on DLC change
+  function setupDlcListeners() {
+    document.querySelectorAll("input[name=dlc]").forEach(cb => {
+      cb.addEventListener("change", () => {
+        selectedPortraitName = null;
+        renderPortraits(getSelectedDlcs());
+      });
+    });
+  }
+
+  // Copy to clipboard function
+  copyBtn.addEventListener("click", () => {
+    const text = resultDiv.textContent;
+    navigator.clipboard.writeText(text);
+    alert("Copied to clipboard!");
+  });
+
+  // Generate button click handler
+  generateBtn.addEventListener("click", () => {
+    const selectedDlcs = getSelectedDlcs();
+    if (selectedDlcs.length === 0) {
+      alert("Please select at least one DLC or none for base content.");
+    }
+    const race = generateRace(selectedDlcs);
+
+    // Override portrait if user selected one
+    if (selectedPortraitName) {
+      const chosen = PORTRAITS.find(p => p.name === selectedPortraitName);
+      if (chosen) race.portrait = chosen;
+    }
+
+    const text = `
+Name: ${race.name}
+Species Base: ${race.species_base}
+Portrait: ${race.portrait.name}
+Traits: ${race.traits.join(", ")}
+Ethics: ${race.ethics.join(", ")}
+Government: ${race.government}
+Civics: ${race.civics.join(", ")}
+Origin: ${race.origin}
+    `.trim();
+
+    resultDiv.textContent = text;
+    resultDiv.style.display = "block";
+    copyBtn.style.display = "inline-block";
+  });
+
+  // Init
+  renderDlcs();
+  renderPortraits([]);
+  setupDlcListeners();
+</script>
+</body>
+</html>*ÄZJZ0ÙsõFè@t`_ñd|h—Ë‹ƒ
